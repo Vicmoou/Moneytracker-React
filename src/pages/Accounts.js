@@ -25,13 +25,15 @@ import {
   Fab,
   Tooltip,
   Alert,
-  Snackbar
+  Snackbar,
+  Avatar
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import Layout from '../components/Layout';
 import { 
   getAccounts, 
@@ -39,6 +41,30 @@ import {
   formatCurrency,
   generateId
 } from '../utils/localStorage';
+import { styled } from '@mui/material/styles';
+
+// Styled components
+const VisuallyHiddenInput = styled('input')({
+  clip: 'rect(0 0 0 0)',
+  clipPath: 'inset(50%)',
+  height: 1,
+  overflow: 'hidden',
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  whiteSpace: 'nowrap',
+  width: 1,
+});
+
+const AccountIcon = styled(Avatar)(({ theme }) => ({
+  width: 40,
+  height: 40,
+  backgroundColor: theme.palette.primary.main,
+  '& img': {
+    objectFit: 'contain',
+    padding: 4
+  }
+}));
 
 const Accounts = () => {
   const [accounts, setAccounts] = useState([]);
@@ -48,6 +74,7 @@ const Accounts = () => {
   const [accountName, setAccountName] = useState('');
   const [accountBalance, setAccountBalance] = useState('');
   const [accountIcon, setAccountIcon] = useState('account_balance_wallet');
+  const [customIcon, setCustomIcon] = useState(null);
   const [fromAccount, setFromAccount] = useState('');
   const [toAccount, setToAccount] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
@@ -83,11 +110,13 @@ const Accounts = () => {
       setAccountName(account.name);
       setAccountBalance(account.balance.toString());
       setAccountIcon(account.icon || 'account_balance_wallet');
+      setCustomIcon(account.customIcon || null);
     } else {
       setCurrentAccount(null);
       setAccountName('');
       setAccountBalance('');
       setAccountIcon('account_balance_wallet');
+      setCustomIcon(null);
     }
     setOpenAccountDialog(true);
   };
@@ -107,6 +136,38 @@ const Accounts = () => {
     setOpenTransferDialog(false);
   };
 
+  const handleIconChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 1MB)
+    if (file.size > 1024 * 1024) {
+      setSnackbar({
+        open: true,
+        message: 'Image size should be less than 1MB',
+        severity: 'error'
+      });
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setSnackbar({
+        open: true,
+        message: 'Please upload an image file',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setCustomIcon(event.target.result);
+      setAccountIcon('custom');
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveAccount = () => {
     if (!accountName.trim()) {
       setSnackbar({
@@ -123,7 +184,13 @@ const Accounts = () => {
       // Update existing account
       const updatedAccounts = accounts.map(acc => 
         acc.id === currentAccount.id 
-          ? { ...acc, name: accountName, balance, icon: accountIcon }
+          ? { 
+              ...acc, 
+              name: accountName, 
+              balance, 
+              icon: accountIcon,
+              customIcon: accountIcon === 'custom' ? customIcon : null
+            }
           : acc
       );
       setAccounts(updatedAccounts);
@@ -139,7 +206,8 @@ const Accounts = () => {
         id: generateId(),
         name: accountName,
         balance,
-        icon: accountIcon
+        icon: accountIcon,
+        customIcon: accountIcon === 'custom' ? customIcon : null
       };
       const updatedAccounts = [...accounts, newAccount];
       setAccounts(updatedAccounts);
@@ -315,8 +383,14 @@ const Accounts = () => {
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <AccountBalanceWalletIcon color="primary" sx={{ mr: 1 }} />
-                      <Typography variant="h6">
+                      <AccountIcon>
+                        {account.customIcon ? (
+                          <img src={account.customIcon} alt={account.name} />
+                        ) : (
+                          <AccountBalanceWalletIcon />
+                        )}
+                      </AccountIcon>
+                      <Typography variant="h6" sx={{ ml: 2 }}>
                         {account.name}
                       </Typography>
                     </Box>
@@ -381,40 +455,61 @@ const Accounts = () => {
           {currentAccount ? 'Edit Account' : 'Add New Account'}
         </DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Account Name"
-            fullWidth
-            variant="outlined"
-            value={accountName}
-            onChange={(e) => setAccountName(e.target.value)}
-            sx={{ mb: 2, mt: 1 }}
-          />
-          <TextField
-            margin="dense"
-            label="Balance"
-            fullWidth
-            variant="outlined"
-            type="number"
-            value={accountBalance}
-            onChange={(e) => setAccountBalance(e.target.value)}
-            sx={{ mb: 2 }}
-          />
-          <FormControl fullWidth variant="outlined" sx={{ mb: 2 }}>
-            <InputLabel>Icon</InputLabel>
-            <Select
-              value={accountIcon}
-              onChange={(e) => setAccountIcon(e.target.value)}
-              label="Icon"
-            >
-              {accountIcons.map((icon) => (
-                <MenuItem key={icon.value} value={icon.value}>
-                  {icon.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Box sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Account Name"
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Balance"
+              type="number"
+              value={accountBalance}
+              onChange={(e) => setAccountBalance(e.target.value)}
+              margin="normal"
+            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Icon</InputLabel>
+              <Select
+                value={accountIcon}
+                onChange={(e) => setAccountIcon(e.target.value)}
+                label="Icon"
+              >
+                {accountIcons.map((icon) => (
+                  <MenuItem key={icon.value} value={icon.value}>
+                    {icon.label}
+                  </MenuItem>
+                ))}
+                <MenuItem value="custom">Custom Icon</MenuItem>
+              </Select>
+            </FormControl>
+            {accountIcon === 'custom' && (
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <Button
+                  component="label"
+                  variant="outlined"
+                  startIcon={<PhotoCameraIcon />}
+                >
+                  Upload Icon
+                  <VisuallyHiddenInput
+                    type="file"
+                    accept="image/*"
+                    onChange={handleIconChange}
+                  />
+                </Button>
+                {customIcon && (
+                  <Box sx={{ mt: 2 }}>
+                    <AccountIcon>
+                      <img src={customIcon} alt="Custom Icon" />
+                    </AccountIcon>
+                  </Box>
+                )}
+              </Box>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseAccountDialog}>Cancel</Button>

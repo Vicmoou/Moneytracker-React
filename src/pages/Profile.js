@@ -78,13 +78,23 @@ const Profile = () => {
   const [openImportDialog, setOpenImportDialog] = useState(false);
   const [importData, setImportData] = useState('');
   const [exportData, setExportData] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     // Load user profile
     const loadProfile = () => {
-      const userProfile = getUserProfile(user?.username);
-      if (userProfile) {
-        setProfile(userProfile);
+      try {
+        const userProfile = getUserProfile(user?.username);
+        if (userProfile) {
+          setProfile(userProfile);
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        setSnackbar({
+          open: true,
+          message: 'Error loading profile',
+          severity: 'error'
+        });
       }
     };
 
@@ -114,6 +124,28 @@ const Profile = () => {
 
   const handlePhotoChange = (e) => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setSnackbar({
+          open: true,
+          message: 'Image size should be less than 5MB',
+          severity: 'error'
+        });
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setSnackbar({
+          open: true,
+          message: 'Please upload an image file',
+          severity: 'error'
+        });
+        return;
+      }
+
       const reader = new FileReader();
       
       reader.onload = (event) => {
@@ -123,12 +155,24 @@ const Profile = () => {
         }));
       };
       
-      reader.readAsDataURL(e.target.files[0]);
+      reader.onerror = () => {
+        setSnackbar({
+          open: true,
+          message: 'Error reading image file',
+          severity: 'error'
+        });
+      };
+      
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleSaveProfile = () => {
-    if (user) {
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    setIsSaving(true);
+    try {
+      // Save profile to localStorage
       saveUserProfile(user.username, profile);
       
       // Update user context with new profile data
@@ -142,6 +186,15 @@ const Profile = () => {
         message: 'Profile updated successfully',
         severity: 'success'
       });
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error saving profile',
+        severity: 'error'
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -253,109 +306,85 @@ const Profile = () => {
                   fullWidth
                   label="Email"
                   name="email"
+                  type="email"
                   value={profile.email}
                   onChange={handleInputChange}
                   margin="normal"
                   variant="outlined"
                 />
                 
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                  Username: {user?.username}
-                </Typography>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Currency</InputLabel>
+                  <Select
+                    name="currency"
+                    value={profile.currency}
+                    onChange={handleInputChange}
+                    label="Currency"
+                  >
+                    {currencies.map((currency) => (
+                      <MenuItem key={currency.value} value={currency.value}>
+                        {currency.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Language</InputLabel>
+                  <Select
+                    name="language"
+                    value={profile.language}
+                    onChange={handleInputChange}
+                    label="Language"
+                  >
+                    {languages.map((language) => (
+                      <MenuItem key={language.value} value={language.value}>
+                        {language.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={profile.theme === 'dark'}
+                      onChange={handleThemeChange}
+                      color="primary"
+                    />
+                  }
+                  label="Dark Mode"
+                />
+                
+                <Box sx={{ mt: 3 }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    onClick={handleSaveProfile}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </Box>
               </CardContent>
             </Card>
           </Grid>
           
-          {/* Right Column - Settings */}
+          {/* Right Column - Data Management */}
           <Grid item xs={12} md={8}>
-            <Card elevation={2} sx={{ borderRadius: 2, mb: 3 }}>
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Appearance & Preferences
-                </Typography>
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={profile.theme === 'dark'}
-                          onChange={handleThemeChange}
-                          color="primary"
-                        />
-                      }
-                      label={
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          {profile.theme === 'dark' ? (
-                            <>
-                              <DarkModeIcon sx={{ mr: 1 }} />
-                              Dark Mode
-                            </>
-                          ) : (
-                            <>
-                              <LightModeIcon sx={{ mr: 1 }} />
-                              Light Mode
-                            </>
-                          )}
-                        </Box>
-                      }
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth variant="outlined">
-                      <InputLabel>Currency</InputLabel>
-                      <Select
-                        name="currency"
-                        value={profile.currency}
-                        onChange={handleInputChange}
-                        label="Currency"
-                      >
-                        {currencies.map((currency) => (
-                          <MenuItem key={currency.value} value={currency.value}>
-                            {currency.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth variant="outlined">
-                      <InputLabel>Language</InputLabel>
-                      <Select
-                        name="language"
-                        value={profile.language}
-                        onChange={handleInputChange}
-                        label="Language"
-                      >
-                        {languages.map((language) => (
-                          <MenuItem key={language.value} value={language.value}>
-                            {language.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-            
             <Card elevation={2} sx={{ borderRadius: 2 }}>
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="h6" gutterBottom>
                   Data Management
                 </Typography>
                 
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  Export your data as JSON to back it up or import previously exported data.
-                </Typography>
-                
-                <Box sx={{ display: 'flex', gap: 2 }}>
+                <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
                   <Button
                     variant="outlined"
                     startIcon={<DownloadIcon />}
                     onClick={handleExportData}
+                    fullWidth
                   >
                     Export Data
                   </Button>
@@ -364,6 +393,7 @@ const Profile = () => {
                     variant="outlined"
                     startIcon={<UploadIcon />}
                     onClick={() => setOpenImportDialog(true)}
+                    fullWidth
                   >
                     Import Data
                   </Button>
@@ -371,23 +401,10 @@ const Profile = () => {
               </CardContent>
             </Card>
           </Grid>
-          
-          {/* Save Button */}
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-              <Button
-                variant="contained"
-                size="large"
-                onClick={handleSaveProfile}
-              >
-                Save Changes
-              </Button>
-            </Box>
-          </Grid>
         </Grid>
       </Box>
 
-      {/* Export Data Dialog */}
+      {/* Export Dialog */}
       <Dialog
         open={openExportDialog}
         onClose={() => setOpenExportDialog(false)}
@@ -396,44 +413,36 @@ const Profile = () => {
       >
         <DialogTitle>Export Data</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" paragraph>
-            Copy the JSON data below or save it to a file:
-          </Typography>
-          
           <TextField
             fullWidth
             multiline
             rows={10}
             value={exportData}
-            variant="outlined"
             InputProps={{
               readOnly: true,
             }}
+            sx={{ mt: 2 }}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenExportDialog(false)}>Close</Button>
-          <Button 
+          <Button
             variant="contained"
             onClick={() => {
-              // Create a download link for the JSON data
-              const blob = new Blob([exportData], { type: 'application/json' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'money-tracker-data.json';
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
+              navigator.clipboard.writeText(exportData);
+              setSnackbar({
+                open: true,
+                message: 'Data copied to clipboard',
+                severity: 'success'
+              });
             }}
           >
-            Download File
+            Copy to Clipboard
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Import Data Dialog */}
+      {/* Import Dialog */}
       <Dialog
         open={openImportDialog}
         onClose={() => setOpenImportDialog(false)}
@@ -442,29 +451,20 @@ const Profile = () => {
       >
         <DialogTitle>Import Data</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" paragraph>
-            Paste your JSON data below:
-          </Typography>
-          
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Warning: Importing data will replace all your current data. Make sure to back up your current data first.
-          </Alert>
-          
           <TextField
             fullWidth
             multiline
             rows={10}
             value={importData}
             onChange={(e) => setImportData(e.target.value)}
-            variant="outlined"
-            placeholder='{"accounts": [], "transactions": [], ...}'
+            placeholder="Paste your JSON data here"
+            sx={{ mt: 2 }}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenImportDialog(false)}>Cancel</Button>
-          <Button 
+          <Button
             variant="contained"
-            color="primary"
             onClick={handleImportData}
             disabled={!importData.trim()}
           >
@@ -473,19 +473,14 @@ const Profile = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar for notifications */}
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={6000} 
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert 
-          onClose={handleCloseSnackbar} 
-          severity={snackbar.severity} 
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
           {snackbar.message}
         </Alert>
       </Snackbar>

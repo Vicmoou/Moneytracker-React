@@ -384,3 +384,108 @@ export const importUserData = (data) => {
     return false;
   }
 };
+
+/**
+ * Get user profile
+ * @param {string} username - Username
+ * @returns {Object|null} - User profile or null if not found
+ */
+export const getUserProfile = (username) => {
+  if (!username) return null;
+  
+  const users = getUsers();
+  const user = users.find(u => u.username === username);
+  
+  if (!user) return null;
+  
+  // Get user settings
+  const settings = getUserData(SETTINGS_KEY) || DEFAULT_SETTINGS;
+  
+  return {
+    name: user.name || username,
+    email: user.email || '',
+    photo: user.photo || null,
+    theme: settings.theme || 'light',
+    currency: settings.currency || 'USD',
+    language: settings.language || 'en'
+  };
+};
+
+/**
+ * Save user profile
+ * @param {string} username - Username
+ * @param {Object} profile - Profile data
+ * @returns {boolean} - Success status
+ */
+export const saveUserProfile = (username, profile) => {
+  if (!username || !profile) return false;
+  
+  try {
+    const users = getUsers();
+    const userIndex = users.findIndex(u => u.username === username);
+    
+    if (userIndex === -1) return false;
+    
+    // Update user data
+    users[userIndex] = {
+      ...users[userIndex],
+      name: profile.name,
+      email: profile.email,
+      photo: profile.photo
+    };
+    
+    // Save updated users
+    saveUsers(users);
+    
+    // Update settings
+    const settings = getUserData(SETTINGS_KEY) || DEFAULT_SETTINGS;
+    saveUserData(SETTINGS_KEY, {
+      ...settings,
+      theme: profile.theme,
+      currency: profile.currency,
+      language: profile.language
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error saving profile:', error);
+    return false;
+  }
+};
+
+/**
+ * Get all user data
+ * @returns {Object} - All user data
+ */
+export const getAllData = () => {
+  const user = getCurrentUser();
+  if (!user) return null;
+
+  return {
+    user: user,
+    accounts: getAccounts(),
+    transactions: getTransactions(),
+    categories: getCategories(),
+    shoppingList: getShoppingList(),
+    budgets: getBudgets(),
+    settings: getSettings()
+  };
+};
+
+/**
+ * Set all user data
+ * @param {Object} data - All user data
+ */
+export const setAllData = (data) => {
+  if (!data) return;
+
+  const user = getCurrentUser();
+  if (!user) return;
+
+  if (data.accounts) saveAccounts(data.accounts);
+  if (data.transactions) saveTransactions(data.transactions);
+  if (data.categories) saveCategories(data.categories);
+  if (data.shoppingList) saveShoppingList(data.shoppingList);
+  if (data.budgets) saveBudgets(data.budgets);
+  if (data.settings) saveSettings(data.settings);
+};

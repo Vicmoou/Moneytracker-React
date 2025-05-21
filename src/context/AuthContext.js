@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import { getCurrentUser, loginUser, registerUser, clearCurrentUser } from '../utils/localStorage';
 
 // Create auth context
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 // Auth provider component
 export const AuthProvider = ({ children }) => {
@@ -83,5 +83,3 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   return useContext(AuthContext);
 };
-
-export default AuthContext;
